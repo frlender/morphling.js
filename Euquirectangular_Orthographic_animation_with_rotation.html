@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+path {
+  stroke-linejoin: round;
+  stroke:none;
+}
+
+
+
+</style>
+<body>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="_.js"></script>
+<script src="grid.js"></script>
+<script src="morphling.js"></script>
+<script>
+
+var width = 960,
+    height = 500,
+    stageCenter = [width/2,height/2];
+
+
+var morphling = Morphling();
+
+morphling.svgInfo.stageCenter = stageCenter;
+
+var projection = morphling.getEquirectOrthographicProjection(true);
+var path = d3.geo.path()
+    .projection(projection);
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height);
+
+var feature;
+
+d3.json('cellColors.json',function(data){
+
+  var tiles = generateTiles(Math.sqrt(data.length));
+
+   //deep copy of tiles. rotatedTiles = tiles.slice(0) won't work.
+  var rotatedTiles = JSON.parse(JSON.stringify(tiles)),
+      rotatedData = morphling.rotateTilesData90degree(data);
+
+
+    _.each(tiles,function(eachFeature,i){
+      eachFeature.properties = {cellColor:data[i]};
+    });
+
+    _.each(rotatedTiles,function(eachFeature,i){
+      eachFeature.properties = {cellColor:rotatedData[i]};
+    });
+
+    var rearrangedTiles = morphling.rearrangeForOrthographic(tiles);
+      rearrangedRotatedTiles = morphling.rearrangeForOrthographic(rotatedTiles);
+    delete rotatedTiles;
+
+    var fillInTiles = function(selection,fillTiles){
+        selection.selectAll("path")
+          .data(fillTiles)
+          .enter().append("path")
+          .attr('fill',function(d){return d.properties.cellColor})
+          .attr('opacity',1)
+          .attr("d",path);
+    }
+
+    
+    morphling.svgInfo.normalSvgTiles = svg.append('g').attr('id','normal')
+                                        .call(fillInTiles,rearrangedTiles);
+    morphling.svgInfo.rotatedSvgTiles = svg.append('g').attr('id','rotated')
+                            .call(fillInTiles,rearrangedRotatedTiles).remove();
+    feature = svg.selectAll("path");
+    morphling.addDblclickEvent(svg,projection,path,feature);
+});
+
+
+
+</script>
